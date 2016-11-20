@@ -1,8 +1,5 @@
-import java.io.DataInputStream;
-import java.io.PrintStream;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.IOException;
+import java.io.*;
+import java.net.Inet4Address;
 import java.net.Socket;
 import java.net.UnknownHostException;
 
@@ -22,7 +19,9 @@ public class Lab3ChatRoomClient  implements Runnable {
         public static void main(String[] args) {
 
             //set host and port number.
-            int portNumber = 2222;
+            int portNumber = 2223;
+            String clientName="";
+            String chatRoomName="chat3";
             String host = "localhost";
             if (args.length < 2) {
                 System.out.println("Now using default configuration host=" + host + ", portNumber=" + portNumber);
@@ -47,8 +46,15 @@ public class Lab3ChatRoomClient  implements Runnable {
             if (clientSocket != null && os != null && is != null) {
                 try {
                     new Thread(new Lab3ChatRoomClient()).start();
+                    // send initialize msg to the server
+                    os.println("JOIN_CHATROOM:"+chatRoomName+"\nCLIENT_IP:"+ Inet4Address.getLocalHost().getHostAddress()+"\nPORT:"+portNumber+"\nCLIENT_NAME:"+Inet4Address.getLocalHost().getHostName());
+
                     while (!closed) {
-                        os.println(inputReader.readLine().trim());
+                        String message=inputReader.readLine().trim();
+                        //send msg
+                        os.println("CHAT:" + chatRoomName+"\nJOIN_ID:" + "xx"+"\nCLIENT_NAME:" + Inet4Address.getLocalHost().getHostName()+"\nMESSAGE:" + message);
+                        //test send leave msg
+                        os.println("LEAVE_CHATROOM:" + 0 +"\nJOIN_ID:" + "xx"+"\nCLIENT_NAME:" + Inet4Address.getLocalHost().getHostName());
                     }
                     os.close();
                     is.close();
@@ -61,7 +67,6 @@ public class Lab3ChatRoomClient  implements Runnable {
 
         //get chat updated from the server
         public void run() {
-            System.out.println("why multi thread client?");
             String responseLine;
             try {
                 while ((responseLine = is.readLine()) != null) {

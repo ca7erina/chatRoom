@@ -1,8 +1,10 @@
 import java.io.DataInputStream;
-import java.io.PrintStream;
 import java.io.IOException;
-import java.net.Socket;
+import java.io.PrintStream;
 import java.net.ServerSocket;
+import java.net.Socket;
+import java.util.HashMap;
+import java.util.Map;
 
 
 /*
@@ -17,12 +19,16 @@ public class Lab3ChatRoomServer {
 
     // This chat server can accept up to maxClientsCount clients' connections.
     private static final int maxClientsCount = 10;
-    private static final clientThread[] threads = new clientThread[maxClientsCount];
+
+    private static final HashMap<clientThread,Integer> threads = new HashMap<clientThread,Integer>();//[thread,chatroom]
+   // private static final clientThread[]threads = new clientThread[maxClientsCount]; //[thread,chatroom]
+    private static final String chatRooms[] = new String[maxClientsCount];
 
     public static void main(String args[]) {
 
+
         // set port number.
-        int portNumber = 2222;
+        int portNumber = 2223;
         if(args.length < 1) {
             System.out.println("Now using default configuration portNumber=" + portNumber);
         } else {
@@ -42,18 +48,20 @@ public class Lab3ChatRoomServer {
             try {
                 clientSocket = serverSocket.accept();
                 int i = 0;
-                for(i = 0; i < maxClientsCount; i++) {
-                    if(threads[i] == null) {
-                        (threads[i] = new clientThread(clientSocket, threads)).start();
-                        break;
-                    }
-                }
-                if(i == maxClientsCount) {
+
+                if(threads.size()<maxClientsCount){
+                        clientThread clientThread1=  new clientThread(clientSocket,threads,chatRooms);
+                        clientThread1.start();
+                        threads.put(clientThread1,-1);
+
+                }else{
                     PrintStream os = new PrintStream(clientSocket.getOutputStream());
                     os.println("Server too busy. Try later.");
                     os.close();
                     clientSocket.close();
+
                 }
+
             } catch(IOException e) {
                 System.out.println(e);
             }
@@ -76,117 +84,156 @@ class clientThread extends Thread {
     private DataInputStream is = null;
     private PrintStream os = null;
     private Socket clientSocket = null;
-    private final clientThread[] threads;
+    private final HashMap<clientThread,Integer> threads;
+    private String[] chatRooms;
     private int maxClientsCount;
-    private int roomRef=-1;
-    private int joinId=0;
+    private int joinId;
 
-    public clientThread(Socket clientSocket, clientThread[] threads) {
+
+    public clientThread(Socket clientSocket, HashMap<clientThread,Integer> threads, String chatRooms[]) {
         this.clientSocket = clientSocket;
         this.threads = threads;
-        maxClientsCount = threads.length;
+        this.chatRooms = chatRooms;
+        maxClientsCount = threads.size();
 
     }
 
+    private int getRoomRef(String roomName) {
+
+
+
+        for(int i = 0; i <= maxClientsCount; i++) {
+
+            if(chatRooms[i]==null||chatRooms[i].isEmpty() || chatRooms.equals("")) { //didn't find room, add one
+
+                chatRooms[i] = roomName;
+
+                return i;
+            }
+            if(chatRooms[i].equals(roomName)) { //found room, return ref number
+
+                return i;
+            }
+        }
+
+            return -1;
+    }
+
+    private void setRoofRef(int roomRef){
+        for (Map.Entry<clientThread, Integer> entry : threads.entrySet()) {
+            if(entry.getKey()==this){
+                entry.setValue(roomRef);
+            }
+        }
+
+    }
+
+
+
     public void run() {
         int maxClientsCount = this.maxClientsCount;
-        clientThread[] threads = this.threads;
+        HashMap<clientThread,Integer> threads = this.threads;
 
         try {
 
             //set up
             is = new DataInputStream(clientSocket.getInputStream());
             os = new PrintStream(clientSocket.getOutputStream());
-            String name;
+            // String name;
+
+            //for client
+            String roomName = "";
+            boolean isUDP = false;
+            String clientIp = "";
+            int clientPort = -1;
+            String clientName = "";
+            long joinId = currentThread().getId();
+            int roomRef = -1;
+
+
+
+            //get info from client
             while(true) {
-                os.println("Enter your name.");
-                name = is.readLine().trim();
-                if(name.indexOf('@') == -1) {
-                    break;
-                } else {
-                    os.println("The name should not contain '@' character.");
-                }
-                os.println("Enter chat room number [0-10]:");
-                roomRef = is.readInt();
+                roomName = is.readLine().trim().split(":")[1].trim();
+                roomRef = getRoomRef(roomName);
+                setRoofRef(roomRef);
+                clientIp = is.readLine().trim().split(":")[1].trim();
+                clientPort = Integer.parseInt(is.readLine().trim().split(":")[1].trim());
+                clientName = is.readLine().trim().split(":")[1].trim();
+                System.out.println(roomName + " " + clientIp + " " + clientPort + " " + clientName+" "+roomRef);
+
+
+                break;
             }
 
             //Welcome the new the client.
-            os.println("Welcome " + name + " to our chat room.\nTo leave enter /quit in a new line.");
+            os.println("JOINED_CHATROOM: " + roomName);
+            os.println("SERVER_IP: " + clientIp);
+            os.println("SERVER_PORT: " + clientPort);
+            os.println("ROOM_REF: " + roomRef);
+            os.println("JOIN_ID: " + joinId);
+
+
+            //tell all the threads , new user joined
             synchronized(this) {
-                for(int i = 0; i < maxClientsCount; i++) {
-                    if(threads[i] != null && threads[i] == this) {
-                        clientName = "@" + name;
-                        break;
+                for (Map.Entry<clientThread, Integer> entry : threads.entrySet()) {
+                    if(entry.getValue()==roomRef&&entry.getKey()!=this){
+                        entry.getKey().os.println(clientName + " has joined this chatroom.");
                     }
                 }
-                for(int i = 0; i < maxClientsCount; i++) {
-                    if(threads[i] != null && threads[i] != this) {
-                        threads[i].os.println("*** A new user " + name
-                                + " entered the chat room !!! ***");
-                    }
-                }
+
             }
 
             // get the msg from a client and broad cast it to all other clients
             while(true) {
                 String line = is.readLine();
-                if(line.startsWith("/quit")) {
-                    // leaving chat room
+               // System.out.println(line);
+
+                //leave protocol
+                if(line.startsWith("LEAVE_CHATROOM:")) {
+
+                    // inform all other users in this room
                     synchronized(this) {
-                        for(int i = 0; i < maxClientsCount; i++) {
-                            if(threads[i] != null && threads[i] != this && threads[i].clientName != null) {
-                                threads[i].os.println("*** The user " + name
-                                        + " is leaving the chat room !!! ***");
+                        for (Map.Entry<clientThread, Integer> entry : threads.entrySet()) {
+                            if(entry.getValue()==roomRef && entry.getKey()!=this){
+                                entry.getKey().os.println(clientName + "has left this chatroom.");
                             }
                         }
                     }
-                    os.println("*** Bye " + name + " ***");
+                    os.println("LEFT_CHATROOM:" + roomRef);
+                    os.println("JOIN_ID:" + joinId);
 
+
+                    //reset this thread in the map...?
                     synchronized(this) {
-                        for(int i = 0; i < maxClientsCount; i++) {
-                            if(threads[i] == this) {
-                                threads[i] = null;
+                        for (Map.Entry<clientThread, Integer> entry : threads.entrySet()) {
+                            if(entry.getKey()==this){
+                                entry.setValue(-1);
                             }
                         }
                     }
 
                     break;
                 }
-                // msg sent it to the given client. */
-//                if(line.startsWith("@")) {
-//                    String[] words = line.split("\\s", 2);
-//                    if(words.length > 1 && words[1] != null) {
-//                        words[1] = words[1].trim();
-//                        if(!words[1].isEmpty()) {
-//                            synchronized(this) {
-//                                for(int i = 0; i < maxClientsCount; i++) {
-//                                    if(threads[i] != null && threads[i] != this
-//                                            && threads[i].clientName != null
-//                                            && threads[i].clientName.equals(words[0])) {
-//                                        threads[i].os.println("<" + name + "> " + words[1]);
-//                    /*
-//                     * Echo this message to let the client know the private
-//                     * message was sent.
-//                     */
-//                                        this.os.println(">" + name + "> " + words[1]);
-//                                        break;
-//                                    }
-//                                }
-//                            }
-//                        }
-//                    }
-//                } else {
+
+
+
+                if(line.indexOf("MESSAGE:")>=0){
+                    String msg = parseClientMsg(line);
                     //broadcast it to all other clients.
                     synchronized(this) {
-                        for(int i = 0; i < maxClientsCount; i++) {
-                            if(threads[i] != null && threads[i].clientName != null) {
-                                threads[i].os.println("<" + name + "> " + line);
+                        for (Map.Entry<clientThread, Integer> entry : threads.entrySet()) {
+                            if(entry.getValue()==roomRef&&entry.getKey()!=this){
+                                entry.getKey().os.println("CHAT:" + roomRef);
+                                entry.getKey().os.println("CLIENT_NAME:" + clientName);
+                                entry.getKey().os.println("MESSAGE:" + msg);
                             }
                         }
-                    }
-//                }
-            }
 
+                    }
+                }
+
+            }
 
 
             //close connections
@@ -195,5 +242,9 @@ class clientThread extends Thread {
             clientSocket.close();
         } catch(IOException e) {
         }
+
+    }
+    private String parseClientMsg(String lines){
+        return lines.split("MESSAGE:")[1].trim();
     }
 }
