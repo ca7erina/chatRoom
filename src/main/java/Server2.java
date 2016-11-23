@@ -19,6 +19,7 @@ public class Server2 {
     static private int port;
     static private int poolSize=20;
     private static final String chatRooms[] = new String[100];
+    static private int joinid=0;
 
     public static void main(String[] args) {
         port=2222;
@@ -29,7 +30,7 @@ public class Server2 {
             serverSocket = new ServerSocket(port);
             while(true){
                 Socket clientSocket = serverSocket.accept();
-                ConnectionHandler ch = new ConnectionHandler(clientSocket,chatRooms);
+                ConnectionHandler ch = new ConnectionHandler(clientSocket,chatRooms,joinid++,serverSocket);
                 executor.execute(ch);
             }
         } catch(SocketException e) {
@@ -49,7 +50,7 @@ public class Server2 {
 
 class ConnectionHandler implements Runnable, Comparable <ConnectionHandler>{
 
-
+    private ServerSocket serverSocket;
     private String clientName = null;
     private int clientPort=-1;
     private String clientIp = "";
@@ -63,9 +64,11 @@ class ConnectionHandler implements Runnable, Comparable <ConnectionHandler>{
 
 
 
-    public ConnectionHandler(Socket clientSocket, String chatRooms[]) {
+    public ConnectionHandler(Socket clientSocket, String chatRooms[],int joinId,ServerSocket serverSocket) {
         this.clientSocket = clientSocket;
         this.chatRooms=chatRooms;
+        this.joinId=joinId; //join id of this thread
+        this.serverSocket=serverSocket;
         allClients.add(this);
     }
 
@@ -97,10 +100,12 @@ class ConnectionHandler implements Runnable, Comparable <ConnectionHandler>{
                     String roomName = line.split(":")[1].trim();
                     int roomRef0 = getRoomRef(roomName);
                     addJoinedRoom(roomRef0);
-                    this.clientIp = is.readLine().trim().split(":")[1].trim();
-                    this.clientPort = Integer.parseInt(is.readLine().trim().split(":")[1].trim());
+                    //this.clientIp = is.readLine().trim().split(":")[1].trim();
+                    //this.clientPort = Integer.parseInt(is.readLine().trim().split(":")[1].trim());
+                    this.clientIp="0";is.readLine();
+                    this.clientPort=0;is.readLine();
                     this.clientName = is.readLine().trim().split(":")[1].trim();
-                    this.joinId=Thread.currentThread().getId();
+
                     // System.out.println(roomName + " " + clientIp + " " + clientPort + " " + clientName+" "+roomRef0);
 
                     //Welcome the new the client.
@@ -143,12 +148,12 @@ class ConnectionHandler implements Runnable, Comparable <ConnectionHandler>{
                             h.clientSocket.close();
                         }
                     }
-
+                    this.serverSocket.close();
                     break;
                 }
 
 
-                // disconnect: but connection and leave all rooms.
+                // disconnect, close this thread
                 if(line.startsWith("DISCONNECT:")) {
                     int clientPort = Integer.parseInt(is.readLine().substring(5).trim()); //dont need?
                     String clientName = is.readLine().substring(12).trim(); // dont need?

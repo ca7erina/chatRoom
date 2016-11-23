@@ -15,7 +15,7 @@ public class Server {
     private static ServerSocket serverSocket = null;
     // The client socket.
     private static Socket clientSocket = null;
-
+    private static int joinId = 0;
     // This chat server can accept up to maxClientsCount clients' connections.
     private static final int maxClientsCount = 30;
     private static final clientThread0[] threads = new clientThread0[maxClientsCount];
@@ -44,7 +44,7 @@ public class Server {
                 int i=0;
                 for(i = 0; i < maxClientsCount; i++) {
                     if(threads[i] == null) {
-                        (threads[i] = new clientThread0(clientSocket,threads,chatRooms,serverSocket)).start();
+                        (threads[i] = new clientThread0(clientSocket,threads,chatRooms,serverSocket,joinId++)).start();
                         break;
                     }
                 }
@@ -55,8 +55,9 @@ public class Server {
                     clientSocket.close();
                 }
             } catch(SocketException e) {
-             // e.printStackTrace();
+                e.printStackTrace();
                 break;
+
             } catch(Exception e){
                 e.printStackTrace();
             }
@@ -64,6 +65,7 @@ public class Server {
 
             try {
                 clientSocket.close();
+                serverSocket.close();
             } catch(IOException e) {
                 e.printStackTrace();
             }
@@ -97,11 +99,12 @@ class clientThread0 extends Thread {
     private String[] chatRooms; //all rooms
     private Set<Integer> joinedRoom = new HashSet<Integer>(); //current thread joined rooms
 
-    public clientThread0(Socket clientSocket, clientThread0[] threads, String chatRooms[],ServerSocket serverSocket) {
+    public clientThread0(Socket clientSocket, clientThread0[] threads, String chatRooms[],ServerSocket serverSocket, int joinId) {
         this.clientSocket = clientSocket;
         this.threads = threads;
         this.chatRooms=chatRooms;
         maxClientsCount = threads.length;
+        this.joinId=joinId;
         this.serverSocket = serverSocket;
 
 
@@ -164,10 +167,12 @@ class clientThread0 extends Thread {
                     String roomName = line.split(":")[1].trim();
                     int roomRef0 = getRoomRef(roomName);
                     addJoinedRoom(roomRef0);
-                    this.clientIp = is.readLine().trim().split(":")[1].trim();
-                    this.clientPort = Integer.parseInt(is.readLine().trim().split(":")[1].trim());
+//                    this.clientIp = is.readLine().trim().split(":")[1].trim();
+//                    this.clientPort = Integer.parseInt(is.readLine().trim().split(":")[1].trim());
+                    this.clientIp="0";is.readLine();
+                    this.clientPort=0;is.readLine();
                     this.clientName = is.readLine().trim().split(":")[1].trim();
-                    this.joinId=currentThread().getId();
+
                    // System.out.println(roomName + " " + clientIp + " " + clientPort + " " + clientName+" "+roomRef0);
 
                     //Welcome the new the client.
@@ -208,12 +213,10 @@ class clientThread0 extends Thread {
                                 threads[i].is.close();
                                 threads[i].os.close();
                                 threads[i].clientSocket.close();
-                                threads[i].interrupt();
-
                         }
                         threads[i] = null;
                     }
-
+                    this.serverSocket.close();
                     break;
                 }
 

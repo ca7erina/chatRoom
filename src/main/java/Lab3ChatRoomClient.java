@@ -53,7 +53,7 @@ public class Lab3ChatRoomClient  implements Runnable {
                     // os.println("DISCONNECT:" + 0 +"\nPORT:" + "11"+"\nCLIENT_NAME:" + Inet4Address.getLocalHost().getHostName());
 
                    //test kill
-                    os.println("KILL_SERVICE");closed=true;
+                   // os.println("KILL_SERVICE");closed=true;
 
                     while (!closed) {
                       //  String message=inputReader.readLine().trim();
