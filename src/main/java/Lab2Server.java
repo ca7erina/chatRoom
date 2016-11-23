@@ -27,11 +27,11 @@ public class Lab2Server {
             serverSocket = new ServerSocket(port);
             while(true){
                 Socket socket = serverSocket.accept();
-//                socket.setSoTimeout(10000); // inputstream's read times out if no data came after 10 seconds
-                executor.execute(new ConnectionHandler2(socket));
+                executor.execute(new ConnectionHandler2(socket,serverSocket));
             }
         } catch(IOException e) {
-            e.printStackTrace();
+            executor.shutdown();
+          //  e.printStackTrace();
         }
 
         executor.shutdown();
@@ -46,9 +46,11 @@ public class Lab2Server {
 class ConnectionHandler2 implements Runnable {
 
     private Socket client;
+    private ServerSocket serverSocket=null;
+    public ConnectionHandler2(Socket client,ServerSocket serverSocket) {
 
-    public ConnectionHandler2(Socket client) {
         this.client = client;
+        this.serverSocket = serverSocket;
     }
 
     public void run() {
@@ -59,13 +61,21 @@ class ConnectionHandler2 implements Runnable {
             reader = new BufferedReader(new InputStreamReader(client.getInputStream()));
             writer = new PrintWriter(client.getOutputStream(), true);
 
-            writer.println("Hello! \nIP:"+client.getRemoteSocketAddress()+"\nStudent ID:"+"16302007");
-//                client.close();
-
             while(true) {// The read loop. Code only exits this loop if connection is lost / client disconnects
                 String line = reader.readLine();
+                System.out.println(line);
                 if(line == null) break;
-                writer.println("Echo: " + line);
+                if(line.startsWith("HELO")){
+                    String address = client.getRemoteSocketAddress().toString();
+                    String IP = address.split(":")[0].substring(1);
+                    String port = address.split(":")[1];
+                    writer.println(line+"\nIP:"+IP +"\nPort:"+port+ "\nStudent ID:"+"16302007"+"\n");
+                }
+                if(line.startsWith("KILL_SERVICE")){
+                        serverSocket.close();
+                        break;
+                }
+
             }
         } catch (IOException e) {
             throw new RuntimeException(e);

@@ -1,24 +1,28 @@
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.net.Socket;
 
 public class Lab2Client
 {
     public static void main(String[] args) throws IOException {
         try {
-            Socket sock = new Socket("127.0.0.1",5656);
+            Socket clientSocket = new Socket("127.0.0.1",5656);
 
             // reader is the input stream from the server
-            BufferedReader reader = new BufferedReader(new InputStreamReader(sock.getInputStream()));
+            BufferedReader inputReader = new BufferedReader(new InputStreamReader(System.in));
+            DataInputStream is= new DataInputStream(clientSocket.getInputStream());
+            PrintStream os = new PrintStream(clientSocket.getOutputStream());
 
+
+           // os.println("HELO text\n");
+            os.println("KILL_SERVICE");
             String line;
-            while ( (line = reader.readLine()) != null){
+            while ( (line = is.readLine()) != null){
                 System.out.println(line);
             }
+            os.close();
+            is.close();
+            clientSocket.close();
 
-
-            sock.close();
         }
         catch (IOException ioe) {
             System.err.println(ioe);
