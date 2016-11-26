@@ -1,7 +1,4 @@
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintStream;
+import java.io.*;
 import java.net.*;
 import java.util.Iterator;
 import java.util.TreeSet;
@@ -115,7 +112,7 @@ class clientThread0 extends Thread {
     private String clientIp = "";
    // private DataInputStream is = null;
     public BufferedReader is=null;
-    public PrintStream os = null;
+    public PrintWriter os = null;
     public Socket clientSocket = null;
     private  clientThread0[] threads;
     private int maxClientsCount;
@@ -191,7 +188,7 @@ class clientThread0 extends Thread {
 
             //set up
             is= new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-            os = new PrintStream(clientSocket.getOutputStream());
+            os = new PrintWriter(clientSocket.getOutputStream(),true);
             String line="";
             while((line = is.readLine())!=null) {
 //                String line = is.readLine();
