@@ -42,29 +42,36 @@ public class Lab3ChatRoomClient  implements Runnable {
                 try {
                     new Thread(new Lab3ChatRoomClient()).start();
                     // send initialize msg to the server
-                   os.println("JOIN_CHATROOM:"+"room1"+"\nCLIENT_IP:"+ Inet4Address.getLocalHost().getHostAddress()+"\nPORT:"+portNumber+"\nCLIENT_NAME:"+Inet4Address.getLocalHost().getHostName());
-                   //test
-                   //os.println("HELO BASE_TEST");
+//                  os.println("JOIN_CHATROOM:"+"room22"+"\nCLIENT_IP:"+ Inet4Address.getLocalHost().getHostAddress()+"\nPORT:"+portNumber+"\nCLIENT_NAME:"+Inet4Address.getLocalHost().getHostName());
+                  // os.println("JOIN_CHATROOM:"+"room2"+"\nCLIENT_IP:"+ Inet4Address.getLocalHost().getHostAddress()+"\nPORT:"+portNumber+"\nCLIENT_NAME:"+Inet4Address.getLocalHost().getHostName());
 
+                    //  os.println("JOIN_CHATROOM:"+"room2"+"\nCLIENT_IP:"+ Inet4Address.getLocalHost().getHostAddress()+"\nPORT:"+portNumber+"\nCLIENT_NAME:"+Inet4Address.getLocalHost().getHostName());
+
+
+                    //test
+//                   os.println("HELO BASE_TEST");
+//      os.println("xxxxT");//
                     //test send leave msg
                    // os.println("LEAVE_CHATROOM:" + 0 +"\nJOIN_ID:" + "11"+"\nCLIENT_NAME:" + Inet4Address.getLocalHost().getHostName());
 
                     //test disconnect
-                    // os.println("DISCONNECT:" + 0 +"\nPORT:" + "11"+"\nCLIENT_NAME:" + Inet4Address.getLocalHost().getHostName());
+                  //  os.println("DISCONNECT:" + 0 +"\nPORT:" + "11"+"\nCLIENT_NAME:" + Inet4Address.getLocalHost().getHostName());
+                   // os.println("JOIN_CHATROOM:"+"room1"+"\nCLIENT_IP:"+ Inet4Address.getLocalHost().getHostAddress()+"\nPORT:"+portNumber+"\nCLIENT_NAME:"+Inet4Address.getLocalHost().getHostName());
 
-                   //test kill
-                   // os.println("KILL_SERVICE");closed=true;
+                    //test kill
+          os.println("KILL_SERVICE\n");//closed=true;
 
                     while (!closed) {
-                      //  String message=inputReader.readLine().trim();
+                        String message=inputReader.readLine().trim();
                         //send msg
-                       //os.println("CHAT:" + 0+"\nJOIN_ID:" + "02"+"\nCLIENT_NAME:" + Inet4Address.getLocalHost().getHostName()+"\nMESSAGE:" + message);
+                       os.println("CHAT:" + 0+"\nJOIN_ID:" + "02"+"\nCLIENT_NAME:" + Inet4Address.getLocalHost().getHostName()+"\nMESSAGE:" + message+"\n\n");
 
 
                     }
                     os.close();
                     is.close();
                     clientSocket.close();
+
                 } catch (IOException e) {
                     System.err.println("IOException:  " + e);
                 }
@@ -76,10 +83,8 @@ public class Lab3ChatRoomClient  implements Runnable {
             String responseLine;
             try {
                 while ((responseLine = is.readLine()) != null) {
-                    System.out.println(responseLine);
-                    if (responseLine.indexOf("*** Bye") != -1){
-                        break;
-                    }
+                    System.out.println("-"+responseLine);
+
                 }
                 closed = true;
             } catch (IOException e) {
