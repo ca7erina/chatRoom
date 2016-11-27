@@ -15,14 +15,18 @@ import java.util.concurrent.Executors;
 public class Lab2Server {
 
 
-    static private int port;
+    static private int port=2222;
     static private int poolSize=5;
 
     public static void main(String[] args) {
-        port=5656;
+        port=2222;
+        if(args.length>0){
+            port=Integer.parseInt(args[0].trim());
+        }
 
         ExecutorService executor = Executors.newFixedThreadPool(poolSize);
         ServerSocket serverSocket=null;
+        System.out.println("Server is on");
         try {
             serverSocket = new ServerSocket(port);
             while(true){
@@ -30,8 +34,8 @@ public class Lab2Server {
                 executor.execute(new ConnectionHandler2(socket,serverSocket));
             }
         } catch(IOException e) {
-            executor.shutdown();
-          //  e.printStackTrace();
+
+            e.printStackTrace();
         }
 
         executor.shutdown();
@@ -87,11 +91,7 @@ class ConnectionHandler2 implements Runnable {
                 throw new RuntimeException(e);
             }
         }
-//        try {
-//            Thread.sleep(5000);
-//        } catch (InterruptedException e) {
-//            e.printStackTrace();
-//        }
+
         System.out.println(Thread.currentThread().getName()+" End.");
     }
 

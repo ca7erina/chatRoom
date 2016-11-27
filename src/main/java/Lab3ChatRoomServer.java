@@ -8,55 +8,48 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.Iterator;
 import java.util.TreeSet;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /*
- * Chat Server
- */
+* Chat Server
+*/
 public class Lab3ChatRoomServer {
     private static ServerSocket serverSocket = null;
-    private static Socket clientSocket = null;
     private static final int PORT_NUMBER = 2222;
-    private static final int MAX_CLIENT_NUMBER = 30;
-    private static clientThread[] threads = new clientThread[MAX_CLIENT_NUMBER];
+    private static final int MAX_CLIENT_NUMBER = 3;
+    private static ClientThread[] threads = new ClientThread[MAX_CLIENT_NUMBER];
     private static TreeSet<ChatRoom> allChatRooms = new TreeSet<ChatRoom>();
 
     public static void main(String args[]) {
         int joinId = 0;
-
+        ExecutorService executor = Executors.newFixedThreadPool(MAX_CLIENT_NUMBER);
         try {
             serverSocket = new ServerSocket(PORT_NUMBER);
         } catch(IOException e) {
             e.printStackTrace();
         }
-
         /* Create a client socket for each connection and pass it to a new client thread. */
         while(true) {
             try {
-                clientSocket = serverSocket.accept();
-                PrintWriter os = new PrintWriter(clientSocket.getOutputStream(), true);
-                int i;
-                for(i = 0; i < MAX_CLIENT_NUMBER; i++) {
+                Socket clientSocket = serverSocket.accept();
+                ClientThread ct=new ClientThread(clientSocket, threads, allChatRooms, joinId++);
+                /* put thread in the list */
+                for(int i = 0; i < MAX_CLIENT_NUMBER; i++) {
                     if(threads[i] == null) {
-                        (threads[i] = new clientThread(clientSocket, threads, allChatRooms, joinId++)).start();
+                        threads[i] = ct;
                         break;
                     }
                 }
-                System.out.println(i);
-                if(i >= MAX_CLIENT_NUMBER) {
-                    os.println("ERROR_CODE:00");
-                    os.println("ERROR_DESCRIPTION: Server too busy. Try later.\n");
-                    os.flush();
-                    os.close();
-                    clientSocket.close();
-                }
+                executor.execute(ct);
             } catch(IOException e) {
                 e.printStackTrace();
                 break;
             }
         }
         try {
+            executor.shutdown();
             serverSocket.close();
-            clientSocket.close();
         } catch(IOException e) {
             e.printStackTrace();
         }
@@ -66,28 +59,28 @@ public class Lab3ChatRoomServer {
 }
 
 /*
- * The chat client thread. This client thread opens the input and the output
- * streams for a particular client, ask the client's name, informs all the
- * clients connected to the server about the fact that a new client has joined
- * the chat room, and as long as it receive data, echos that data back to all
- * other clients. The thread broadcast the incoming messages to all clients and
- * routes the private message to the particular client. When a client leaves the
- * chat room this thread informs also all the clients about that and terminates.
- */
-class clientThread extends Thread {
-    private String clientName = null;
-    //    private final int clientPort = 0; //for TCP
+* The chat client thread. This client thread opens the input and the output
+* streams for a particular client, ask the client's name, informs all the
+* clients connected to the server about the fact that a new client has joined
+* the chat room, and as long as it receive data, echos that data back to all
+* other clients. The thread broadcast the incoming messages to all clients and
+* routes the private message to the particular client. When a client leaves the
+* chat room this thread informs also all the clients about that and terminates.
+*/
+class ClientThread extends Thread {
+    //    private String clientName;
+//    private final int clientPort = 0; //for TCP
 //    private final String clientIp = "0"; //for TCP
     private BufferedReader is = null;
     private PrintWriter os = null;
     private Socket clientSocket = null;
-    private clientThread[] threads;
+    private ClientThread[] threads;
     private int maxClientsCount;
     private long joinId = -1;
     private TreeSet<ChatRoom> chatRooms; //all rooms set
     private TreeSet<ChatRoom> joinedRoom = new TreeSet<ChatRoom>(); //client's current thread joined rooms
 
-    public clientThread(Socket clientSocket, clientThread[] threads, TreeSet<ChatRoom> chatRooms, int joinId) {
+    public ClientThread(Socket clientSocket, ClientThread[] threads, TreeSet<ChatRoom> chatRooms, int joinId) {
         this.clientSocket = clientSocket;
         this.threads = threads;
         this.chatRooms = chatRooms;
@@ -96,7 +89,7 @@ class clientThread extends Thread {
     }
 
     public void run() {
-        clientThread[] threads = this.threads;
+        ClientThread[] threads = this.threads;
         try {
             /* set up in/out streams */
             is = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
@@ -133,7 +126,7 @@ class clientThread extends Thread {
                     int roomRef0 = getRoomRef(roomName);
                     is.readLine(); //for TCP
                     is.readLine(); //for TCP
-                    this.clientName = is.readLine().trim().split(":")[1].trim();
+                    String clientName = is.readLine().trim().split(":")[1].trim();
                     /* for client already joined this certain room. */
                     if(isAlreadyIn(roomRef0)) {
                         os.println("ERROR_CODE:00");
@@ -151,20 +144,8 @@ class clientThread extends Thread {
                     os.println("JOIN_ID: " + joinId);
                     os.flush();
                     /* broadcast it to all other clients in this room. */
-                    synchronized(this) {
-                        for(int i = 0; i < maxClientsCount; i++) {
-                            if(threads[i] != null) {
-                                for(ChatRoom room : threads[i].joinedRoom) {
-                                    if(room.getId() == (roomRef0)) {
-                                        threads[i].os.println("CHAT:" + roomRef0);
-                                        threads[i].os.println("CLIENT_NAME:" + clientName);
-                                        threads[i].os.println("MESSAGE:" + this.clientName + " has joined this chatroom.\n");
-                                        threads[i].os.flush();
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    String msg = "CHAT:" + roomRef0+"\nCLIENT_NAME:"+clientName+"\nMESSAGE:"+clientName + " has joined this chatroom.\n";
+                    broadcastToOthersInTheSameRoom(roomRef0,msg);
                     continue;
                 }
 
@@ -177,18 +158,8 @@ class clientThread extends Thread {
                     /* broadcast it to all other clients in this room. */
                     synchronized(this) {
                         for(ChatRoom room0 : this.joinedRoom) {
-                            for(int i = 0; i < maxClientsCount; i++) {
-                                if(threads[i] != null) {
-                                    for(ChatRoom iroom : threads[i].joinedRoom) {
-                                        if(iroom.getId() == (room0.getId())) {
-                                            threads[i].os.println("CHAT:" + iroom.getId());
-                                            threads[i].os.println("CLIENT_NAME:" + clientName);
-                                            threads[i].os.println("MESSAGE:" + clientName + " has left this chatroom.\n");
-                                            threads[i].os.flush();
-                                        }
-                                    }
-                                }
-                            }
+                            String msg = "CHAT:" + room0.getId()+"\nCLIENT_NAME:" + clientName+"\nMESSAGE:" + clientName + " has left this chatroom.\n";
+                            broadcastToOthersInTheSameRoom(room0.getId(),msg);
                         }
                         /* remove the client from all associated rooms. */
                         this.joinedRoom = new TreeSet<ChatRoom>();
@@ -206,20 +177,8 @@ class clientThread extends Thread {
                     os.println("LEFT_CHATROOM:" + roomRef0);
                     os.println("JOIN_ID:" + joinId);
                     /* broadcast it to all other clients in this room. */
-                    synchronized(this) {
-                        for(int i = 0; i < maxClientsCount; i++) {
-                            if(threads[i] != null) {
-                                for(ChatRoom room : threads[i].joinedRoom) {
-                                    if(room.getId() == roomRef0) { //same room
-                                        threads[i].os.println("CHAT:" + roomRef0);
-                                        threads[i].os.println("CLIENT_NAME:" + clientName);
-                                        threads[i].os.println("MESSAGE:" + clientName + " has left this chatroom.\n");
-                                        threads[i].os.flush();
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    String msg = "CHAT:" + roomRef0+"\nCLIENT_NAME:" + clientName+"\nMESSAGE:" + clientName + " has left this chatroom.\n";
+                    broadcastToOthersInTheSameRoom(roomRef0,msg);
                     /* remove the room from this client. */
                     if(isAlreadyIn(roomRef0)) {
                         removeJoinedRoom(roomRef0);
@@ -238,23 +197,11 @@ class clientThread extends Thread {
                     int roomRef0 = Integer.parseInt(line.substring(5).trim());
                     is.readLine(); //read joinid, in this protocol, never used here tho.
                     String clientName = is.readLine().substring(12).trim();
-                    String msg = is.readLine().substring(8).trim();
+                    String message = is.readLine().substring(8).trim();
                     is.readLine();// extra line
-                    /* broadcast it to all other clients in this room */
-                    synchronized(this) {
-                        for(int i = 0; i < maxClientsCount; i++) {
-                            if(threads[i] != null && threads[i].clientName != null) {
-                                for(ChatRoom room : threads[i].joinedRoom) {
-                                    if(room.getId() == (roomRef0)) { //same room
-                                        threads[i].os.println("CHAT:" + roomRef0);
-                                        threads[i].os.println("CLIENT_NAME:" + clientName);
-                                        threads[i].os.println("MESSAGE:" + msg + "\n");
-                                        threads[i].os.flush();
-                                    }
-                                }
-                            }
-                        }
-                    }
+                     /* broadcast it to all other clients in this room */
+                    String msg = "CHAT:" + roomRef0+"\nCLIENT_NAME:" + clientName+"\nMESSAGE:" + message + "\n";
+                    broadcastToOthersInTheSameRoom(roomRef0,msg);
                 }
             }
             os.flush();
@@ -274,6 +221,22 @@ class clientThread extends Thread {
                     os.close();
             } catch(IOException e) {
                 e.printStackTrace();
+            }
+        }
+    }
+
+    /**
+     * broadcast to others
+     */
+    synchronized private void broadcastToOthersInTheSameRoom(int roomRef0, String msg){
+        for(ClientThread c: this.threads) {
+            if(c != null) {
+                for(ChatRoom room : c.joinedRoom) {
+                    if(room.getId() == (roomRef0)) {
+                        c.os.println(msg);
+                        c.os.flush();
+                    }
+                }
             }
         }
     }
