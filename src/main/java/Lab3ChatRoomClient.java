@@ -9,7 +9,7 @@ import java.net.UnknownHostException;
 public class Lab3ChatRoomClient implements Runnable {
 
     private static Socket clientSocket = null;
-    private static PrintWriter os = null;
+    private static PrintStream os = null;
     private static DataInputStream is = null;
     private static BufferedReader inputReader = null;
     private static boolean closed = false;
@@ -27,7 +27,7 @@ public class Lab3ChatRoomClient implements Runnable {
         try {
             clientSocket = new Socket(host, portNumber);
             inputReader = new BufferedReader(new InputStreamReader(System.in));
-            os = new PrintWriter(clientSocket.getOutputStream());
+            os = new PrintStream(clientSocket.getOutputStream());
             is = new DataInputStream(clientSocket.getInputStream());
         } catch(UnknownHostException e) {
             System.err.println("Unknown host " + host);

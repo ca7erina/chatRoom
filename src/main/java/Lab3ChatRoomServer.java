@@ -20,12 +20,18 @@ public class Lab3ChatRoomServer {
     private static clientThread[] threads = new clientThread[MAX_CLIENT_NUMBER];
     private static TreeSet<ChatRoom> allChatRooms = new TreeSet<ChatRoom>();
 
-    public static void main(String args[]) throws IOException {
+    public static void main(String args[]) {
         int joinId = 0;
+
         try {
             serverSocket = new ServerSocket(PORT_NUMBER);
-            /* Create a client socket for each connection and pass it to a new client thread. */
-            while(true) {
+        } catch(IOException e) {
+            e.printStackTrace();
+        }
+
+        /* Create a client socket for each connection and pass it to a new client thread. */
+        while(true) {
+            try {
                 clientSocket = serverSocket.accept();
                 PrintWriter os = new PrintWriter(clientSocket.getOutputStream(), true);
                 int i;
@@ -35,21 +41,28 @@ public class Lab3ChatRoomServer {
                         break;
                     }
                 }
-                while(i >= MAX_CLIENT_NUMBER) {
+                System.out.println(i);
+                if(i >= MAX_CLIENT_NUMBER) {
                     os.println("ERROR_CODE:00");
                     os.println("ERROR_DESCRIPTION: Server too busy. Try later.\n");
                     os.flush();
                     os.close();
                     clientSocket.close();
                 }
+            } catch(IOException e) {
+                e.printStackTrace();
+                break;
             }
-        } catch(Exception e) {
-            e.printStackTrace();
-        } finally {
+        }
+        try {
             serverSocket.close();
             clientSocket.close();
+        } catch(IOException e) {
+            e.printStackTrace();
         }
     }
+
+
 }
 
 /*
@@ -92,11 +105,10 @@ class clientThread extends Thread {
             while((line = is.readLine()) != null) {
                 System.out.println("thread" + this.joinId + " receive msg:" + line); //debug
 
-                /* kill all service */
+                /* kill service */
                 if(line.startsWith("KILL_SERV")) {
-                    /* close all connected clients */
                     for(int i = 0; i < maxClientsCount; i++) {
-                        if(threads[i] != null) {
+                        if(threads[i]==this){
                             threads[i].clientSocket.close();
                             threads[i].os.close();
                             threads[i].is.close();
@@ -225,10 +237,6 @@ class clientThread extends Thread {
                     /* read content from socket */
                     int roomRef0 = Integer.parseInt(line.substring(5).trim());
                     is.readLine(); //read joinid, in this protocol, never used here tho.
-//                    String joinIdString = is.readLine();
-//                    if(joinIdString.startsWith("JOIN_ID")) { //some client has no join-id
-//                        int joinId = Integer.parseInt(joinIdString.substring(8).trim());
-//                    }
                     String clientName = is.readLine().substring(12).trim();
                     String msg = is.readLine().substring(8).trim();
                     is.readLine();// extra line
@@ -266,7 +274,6 @@ class clientThread extends Thread {
                     os.close();
             } catch(IOException e) {
                 e.printStackTrace();
-
             }
         }
     }
